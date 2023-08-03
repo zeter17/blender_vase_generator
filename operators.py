@@ -1,13 +1,38 @@
 import bpy
 import bmesh
 import numpy as np
-from mathutils import noise
 from mathutils import Vector
+import noise
 
 class MESH_OT_add_vase(bpy.types.Operator):
     bl_idname = "mesh.add_vase"
     bl_label = "Add Vase"
     bl_options = {'REGISTER', 'UNDO'}
+
+    vase_type: bpy.props.EnumProperty(
+        name="Vase Type",
+        description="The type of the vase to create",
+        items=[
+            ("CLASSIC", "Classic", "Classic vase shape"),
+            ("MODERN", "Modern", "Modern vase shape"),
+            ("ABSTRACT", "Abstract", "Abstract vase shape"),
+        ],
+        default="CLASSIC",
+    )
+
+    segments: bpy.props.IntProperty(
+        name="Segments",
+        description="The number of segments to use when creating the vase",
+        default=100,
+        min=3,
+    )
+
+    height: bpy.props.FloatProperty(
+        name="Height",
+        description="The height of the vase",
+        default=1.0,
+        min=0.1,
+    )
 
     update: bpy.props.BoolProperty(
         name="Update",
@@ -46,21 +71,29 @@ class MESH_OT_add_vase(bpy.types.Operator):
 
     def execute(self, context):
         # Get the vase properties
-        props = context.scene.vase_properties
+        vase_type = self.vase_type
+        segments = self.segments
+        height = self.height
 
-        # Define the vase profiles
+        theta = np.linspace(0, 2. * np.pi, segments)
+        z = np.linspace(0, height, segments)
+        theta, z = np.meshgrid(theta, z)
+
+        props = context.scene.my_addon_props  # Replace 'my_addon_props' with the name of your properties
+
         vase_profiles = {
-            "TYPE_1": [(z, 0.2 + 0.05 * noise.noise_vector(Vector((z, z, z))).length) for z in np.linspace(0, 2, 10)],  # noise
-            "TYPE_2": [(z, 0.2 + 0.05 * noise.noise_vector(Vector((z + 10, z + 10, z + 10))).length) for z in np.linspace(0, 2, 10)],  # Different noise
-            "TYPE_3": [(z, 0.2 + 0.05 * noise.noise_vector(Vector((z + 20, z + 20, z + 20))).length) for z in np.linspace(0, 2, 10)],  # Yet another noise
+            "CLASSIC": [(z_i, 0.2 + 0.1 * noise.pnoise1(z_i)) for z_i in np.linspace(0, 1, self.segments)],
+            "MODERN": [(z_i, 0.2 + 0.05 * np.sin(2 * np.pi * z_i)) for z_i in np.linspace(0, 1, self.segments)],
+            "ABSTRACT": [(z_i, 0.2 + 0.1 * noise.pnoise1([z_i, 0, 0])) for z_i in np.linspace(0, 1, self.segments)],
         }
 
+        r = np.array(vase_profiles[vase_type])
+        # Add random noise to create organic shape
+        r += np.random.normal(loc=0.0, scale=0.02, size=r.shape)
         # Get the vase profile
         profile = vase_profiles[props.vase_type]
-
         # Normalize the vase height
         profile = [(z / profile[-1][0] * props.height, r) for z, r in profile]
-
         # Pad the profile with repeated end points for the Catmull-Rom spline
         profile = [profile[0]] + profile + [profile[-1]]
 
@@ -75,7 +108,6 @@ class MESH_OT_add_vase(bpy.types.Operator):
         # Define the parameters for the vase
         theta = np.linspace(0, 2 * np.pi, props.segments)  # theta parameter
         z, theta = np.meshgrid(z, theta)
-
         # Add spiral pattern and asymmetry
         spiral = z / 10  # controls the tightness of the spiral
         z_flat = np.ravel(z)
