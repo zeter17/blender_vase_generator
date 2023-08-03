@@ -66,7 +66,7 @@ class MESH_OT_add_vase(bpy.types.Operator):
 
         # Interpolate the vase profile
         z = np.linspace(0, props.height, props.segments)
-        r = np.empty_like(z)
+        r = np.zeros_like(z)
         for i in range(len(profile) - 3):
             z_segment, r_segment = self.catmull_rom(profile[i], profile[i+1], profile[i+2], profile[i+3])
             mask = (z >= z_segment[0]) & (z <= z_segment[-1])
@@ -81,13 +81,18 @@ class MESH_OT_add_vase(bpy.types.Operator):
         z_flat = np.ravel(z)
         theta_flat = np.ravel(theta)
 
-        asymmetry = np.array([0.05 * noise.noise(Vector((z_ij, theta_ij, z_ij))) for z_ij, theta_ij in zip(z_flat, theta_flat)])  # controls the degree of asymmetry
-        relief = np.array([0.05 * noise.noise(Vector((z_ij + theta_ij, z_ij + theta_ij, z_ij + theta_ij))) for z_ij, theta_ij in zip(z_flat, theta_flat)])  # controls the degree of relief
+        print(f"z shape: {z.shape}")
+        z_flat = np.ravel(z)
+        print(f"z_flat shape: {z_flat.shape}")
 
-        asymmetry = np.reshape(asymmetry, z.shape)
-        relief = np.reshape(relief, z.shape)
+        print(f"theta shape: {theta.shape}")
+        theta_flat = np.ravel(theta)
+        print(f"theta_flat shape: {theta_flat.shape}")
 
-        r += spiral + asymmetry + relief
+        asymmetry = np.array([[0.05 * noise.noise(Vector((z_ij, theta_ij, 0))) for z_ij, theta_ij in zip(z_i, theta_i)] for z_i, theta_i in zip(z, theta)])  # controls the degree of asymmetry
+        relief = np.array([[0.05 * noise.noise(Vector((z_ij + theta_ij, z_ij + theta_ij, 0))) for z_ij, theta_ij in zip(z_i, theta_i)] for z_i, theta_i in zip(z, theta)])  # controls the degree of relief
+
+        r = r + spiral + asymmetry + relief
 
         x = r * np.cos(theta)
         y = r * np.sin(theta)
