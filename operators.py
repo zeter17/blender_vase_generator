@@ -2,7 +2,7 @@ import bpy
 import bmesh
 import numpy as np
 from mathutils import Vector
-import noise
+import random
 
 class MESH_OT_add_vase(bpy.types.Operator):
     bl_idname = "mesh.add_vase"
@@ -32,12 +32,6 @@ class MESH_OT_add_vase(bpy.types.Operator):
         description="The height of the vase",
         default=1.0,
         min=0.1,
-    )
-
-    update: bpy.props.BoolProperty(
-        name="Update",
-        description="If true, update the existing vase. Otherwise, create a new one.",
-        default=False,
     )
 
     def catmull_rom(self, P0, P1, P2, P3, n=100):
@@ -79,26 +73,23 @@ class MESH_OT_add_vase(bpy.types.Operator):
         z = np.linspace(0, height, segments)
         theta, z = np.meshgrid(theta, z)
 
-        props = context.scene.my_addon_props  # Replace 'my_addon_props' with the name of your properties
-
         vase_profiles = {
-            "CLASSIC": [(z_i, 0.2 + 0.1 * noise.pnoise1(z_i)) for z_i in np.linspace(0, 1, self.segments)],
+            "CLASSIC": [(z_i, 0.2 + 0.1 * random.random()) for z_i in np.linspace(0, 1, self.segments)],
             "MODERN": [(z_i, 0.2 + 0.05 * np.sin(2 * np.pi * z_i)) for z_i in np.linspace(0, 1, self.segments)],
-            "ABSTRACT": [(z_i, 0.2 + 0.1 * noise.pnoise1([z_i, 0, 0])) for z_i in np.linspace(0, 1, self.segments)],
+            "ABSTRACT": [(z_i, 0.2 + 0.1 * random.random()) for z_i in np.linspace(0, 1, self.segments)],
         }
-
+        profile = vase_profiles[vase_type]
         r = np.array(vase_profiles[vase_type])
         # Add random noise to create organic shape
         r += np.random.normal(loc=0.0, scale=0.02, size=r.shape)
-        # Get the vase profile
-        profile = vase_profiles[props.vase_type]
+
         # Normalize the vase height
-        profile = [(z / profile[-1][0] * props.height, r) for z, r in profile]
+        profile = [(z / profile[-1][0] * height, r) for z, r in profile]
         # Pad the profile with repeated end points for the Catmull-Rom spline
         profile = [profile[0]] + profile + [profile[-1]]
 
         # Interpolate the vase profile
-        z = np.linspace(0, props.height, props.segments)
+        z = np.linspace(0, height, segments)
         r = np.zeros_like(z)
         for i in range(len(profile) - 3):
             z_segment, r_segment = self.catmull_rom(profile[i], profile[i+1], profile[i+2], profile[i+3])
@@ -106,25 +97,15 @@ class MESH_OT_add_vase(bpy.types.Operator):
             r[mask] = np.interp(z[mask], z_segment, r_segment)
 
         # Define the parameters for the vase
-        theta = np.linspace(0, 2 * np.pi, props.segments)  # theta parameter
+        theta = np.linspace(0, 2 * np.pi, segments)  # theta parameter
         z, theta = np.meshgrid(z, theta)
         # Add spiral pattern and asymmetry
         spiral = z / 10  # controls the tightness of the spiral
-        z_flat = np.ravel(z)
-        theta_flat = np.ravel(theta)
 
-        print(f"z shape: {z.shape}")
-        z_flat = np.ravel(z)
-        print(f"z_flat shape: {z_flat.shape}")
+        asymmetry = np.array([0.05 * random.uniform(-1, 1) for _ in np.ravel(z)])  # controls the degree of asymmetry
+        relief = np.array([0.05 * random.uniform(-1, 1) for _ in np.ravel(z)])  # controls the degree of relief
 
-        print(f"theta shape: {theta.shape}")
-        theta_flat = np.ravel(theta)
-        print(f"theta_flat shape: {theta_flat.shape}")
-
-        asymmetry = np.array([[0.05 * noise.noise(Vector((z_ij, theta_ij, 0))) for z_ij, theta_ij in zip(z_i, theta_i)] for z_i, theta_i in zip(z, theta)])  # controls the degree of asymmetry
-        relief = np.array([[0.05 * noise.noise(Vector((z_ij + theta_ij, z_ij + theta_ij, 0))) for z_ij, theta_ij in zip(z_i, theta_i)] for z_i, theta_i in zip(z, theta)])  # controls the degree of relief
-
-        r = r + spiral + asymmetry + relief
+        r = r + spiral + asymmetry.reshape(z.shape) + relief.reshape(z.shape)
 
         x = r * np.cos(theta)
         y = r * np.sin(theta)

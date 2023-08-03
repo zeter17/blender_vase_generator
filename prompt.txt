@@ -1,3 +1,4 @@
-Please, im expection from you managing code. Just generate code in python based on repository - https://github.com/zeter17/blender_vase_generator. Transform business requirements into solutions
+Please, im expection from you managing code. Just generate code in [Python] based on repository - https://github.com/zeter17/blender_vase_generator. Please make code review, fix all minor issues, add improvements and prupose new features. Transform business requirements into ready [Python] code solutions. Answer with code as much as you can, to be ready it copy and paste.
 
-Based on different beautiful math functions that most suitable manner could show all beauty of nature and love of this world in modern, elegant design Wabi-sabi . Could you review once again ask and prepare new math models that will actually look and function as vase in elegant Wabi-sabi style
+The purpose of this project is:
+Based on different beautiful math functions the most suitable manner transfer all the beauty of nature and love of this world in modern, elegant design Vases Wabi-sabi. 
